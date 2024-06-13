@@ -1,0 +1,10 @@
+FROM python:3.8.9
+
+# Upgrade pip and install requirements
+COPY requirements.txt requirements.txt
+RUN pip install -U pip
+RUN pip install -r requirements.txt
+
+# Copy app code and set working directory
+COPY . .
+WORKDIR /
