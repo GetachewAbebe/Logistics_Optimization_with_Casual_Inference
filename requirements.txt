@@ -1,0 +1,9 @@
+dvc
+cml
+pytest
+pandas
+geopy==2.4.1
+holidays==0.5
+flask==3.0.3
+folium==0.16.0
+Flask_Cors==4.0.1
