@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join("../utils/")))
-from data_cleaning import DataPipeline
+from utils.data_cleaning import DataPipeline
 
 pipeline = DataPipeline('Nigeria')
 
