@@ -35,9 +35,12 @@ class DataCleaning:
             df[col+'_long'] = df[col].apply(lambda x: x.split(',')[1])
         return df
 
-    def find_distance(self,df:pd.DataFrame,distance_col_name:str="distance",trip_origin_col_names:list=["trip_origin"],trip_destination_col_names:list=["trip_destination"]):
-        if len(trip_destination_col_names) > 1 and len(trip_origin_col_names) > 1:
-            df[distance_col_name]=df.apply(lambda x:distance.distance((x[trip_origin_col_names[0]],x[trip_origin_col_names[1]]), (x[trip_destination_col_names[0]],x[trip_destination_col_names[1]])).km,axis=1)
-        else:
-            df[distance_col_name]=df.apply(lambda x:distance.distance((x[trip_origin_col_names[0]]), (x[trip_destination_col_names[0]])).km,axis=1)
-        return df
+    def calculate_distances(starting_coordinates, ending_coordinates):
+        calculated_distances = []
+        for i in range(len(starting_coordinates)):
+            val = str(starting_coordinates[i]).split(',')
+            starting_tuple = (val[0], val[1])
+            val_end = str(ending_coordinates[i]).split(',')
+            ending_tuple = (val_end[0], val_end[1])
+            calculated_distances.append(distance.distance(starting_tuple, ending_tuple).km)
+        return calculated_distances
