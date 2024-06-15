@@ -4,6 +4,11 @@ import pandas as pd
 from typing import List
 from datetime import datetime as dtime
 import datetime
+from meteostat import Point, Daily
+import operator
+from functools import reduce
+import folium
+
 
 
 # from scripts.setting_logs import get_rotating_log
@@ -131,31 +136,121 @@ class FeatureExtraction:
                         f"{original_year}-{upcoming.month}-{upcoming.day}")
                 return previous, upcoming
 
-class WeatherAPIConnector():
-    def __init__(self) -> None:
-        self.URL = "https://api.weatherbit.io/v2.0/history/"
-        self.visited_dates = {}
 
-    def make_weather_api_request(self,endpoint, lat, lng, start_date, end_date):
-        try:
-            pass
-        except Exception as e:
-            pass
+    def get_weather_data(self, weather_data):
 
-    def get_daily_weather(self, df_str_date, lat, lng):
-        dt = dtime.strptime(df_str_date, '%Y-%m-%d %H:%M:%S').date()
-        start_date = f"{dt.year}-{dt.month}-{dt.day}"
-        end_dt = dt + datetime.timedelta(days=1)
-        end_date = f"{end_dt.year}-{end_dt.month}-{end_dt.day}"
-        if start_date not in self.visited_dates:
-            self.visited_dates[start_date] = "PERC"
-            return 1
-        else:
-            return self.visited_dates[start_date]
+        # Define location for Lagos, Nigeria
+        lagos = Point(6.5244, 3.3792)
+
+        # Define time range for the data
+        start_date = self.df['Trip Start Time'].min().to_pydatetime()
+        # decrease one day from the start date
+        start_date = start_date - pd.Timedelta(days=1)
+        end_date = self.df['Trip Start Time'].max().to_pydatetime()
         
+        # Get daily weather data for Lagos
+        weather_data = Daily(lagos, start_date, end_date)
+        weather_data = weather_data.fetch()
 
-if __name__ == "__main__":
-    w = WeatherAPIConnector()
-    # print(w.make_request(endpoint="daily",data="SKMCK"))
-    w.get_daily_weather("2021-01-01 07:28:04")
-    w.get_daily_weather("2021-01-01 07:28:04")
+        return weather_data
+    def get_route(self, lat1, lon1, lat2, lon2, trip_id, profile, view):
+        lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
+        # Initialize the map
+        if view == "satellite":
+            m = folium.Map(location=[lat1, lon1], tiles="Esri WorldImagery", attr="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community")
+        else:
+            m = folium.Map(location=[lat1, lon1], tiles="cartodbpositron")
+
+        # Create the coordinate list for routing
+        coords = [[lon1, lat1], [lon2, lat2]]  # Note: Longitude, Latitude order
+
+        # Assuming you have a client object set up for your routing service (e.g., Openrouteservice)
+        route = self.client.directions(
+            coordinates=coords,
+            profile=profile,  # Updated profile for cycling-road directions
+            format="geojson",
+        )
+
+        # Extract waypoints
+        waypoints = list(
+            dict.fromkeys(
+                reduce(
+                    operator.concat,
+                    list(
+                        map(
+                            lambda step: step["way_points"],
+                            route["features"][0]["properties"]["segments"][0]["steps"],
+                        )
+                    ),
+                )
+            )
+        )
+
+        # Draw the route
+        folium.PolyLine(
+            locations=[list(reversed(coord)) for coord in route["features"][0]["geometry"]["coordinates"]],
+            color="blue",
+        ).add_to(m)
+
+        # Highlight waypoints
+        folium.PolyLine(
+            locations=[
+                list(reversed(route["features"][0]["geometry"]["coordinates"][index]))
+                for index in waypoints
+            ],
+            color="red",
+        ).add_to(m)
+
+        # Add a marker for the start point
+        folium.Marker(location=[lat1, lon1], popup=f"Start: {trip_id}").add_to(m)
+
+        # Add a marker for the end point
+        folium.Marker(location=[lat2, lon2], popup=f"End: {trip_id}").add_to(m)
+
+        # Calculate the bounds of the route
+        min_lat, max_lat = min(lat1, lat2), max(lat1, lat2)
+        min_lon, max_lon = min(lon1, lon2), max(lon1, lon2)
+
+        # Set the zoom level dynamically based on the bounds
+        m.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])
+
+        # Calculate the distance
+        distance_in_meters = route["features"][0]["properties"]["summary"]["distance"]
+        distance_in_kilometers = distance_in_meters / 1000
+
+        # Return the map and distance
+        return m, distance_in_kilometers
+
+
+    def combine_get_driver_locations(self, df_trip, df_driver):
+        # df_t = df_trip.copy()
+        driver_lat_ls = []
+        driver_lng_ls = []
+        k = 0
+        for i, df in df_trip.iterrows():
+            try:
+                trip_id = df['Trip ID']
+                drivers = df_driver[df_driver['order_id']==trip_id]
+                driver = drivers[drivers['driver_action']=="accepted"]
+                if len(driver)>0:
+                    driver_lat_ls.append(float(driver['lat']))
+                    driver_lng_ls.append(float(driver['lng']))
+                    # df['driver_lat'] = driver['lat']
+                    # df['driver_lng'] = driver['lng']
+                else:
+                    if len(drivers) > 0:
+                        driver_lat_ls.append(0.5)
+                        driver_lng_ls.append(0.5)
+                    else:
+                        driver_lat_ls.append(0.0)
+                        driver_lng_ls.append(0.0)
+            # k+=1
+            # if k > 1000:
+            #     print(k)
+            #     k=0
+            except Exception as e:
+                driver_lat_ls.append(0.0)
+                driver_lng_ls.append(0.0)
+
+        return driver_lat_ls, driver_lng_ls  
+            
