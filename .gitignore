@@ -2,3 +2,4 @@ causal_env/*
 data/*
 /data
 my_env/
+.env
