@@ -2,7 +2,6 @@ import unittest
 import os
 import sys
 from datetime import datetime
-
 # Adjust the path to include the utils directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../utils/')))
 from data_cleaning import DataPipeline
@@ -11,14 +10,14 @@ pipeline = DataPipeline('Nigeria')
 
 class TestDataPipeline(unittest.TestCase):
 
-    def test_is_weekend(self):
+    def test_isWeekend(self):
         date = datetime(2023, 1, 1)  # Sunday
         self.assertTrue(pipeline.is_weekend(date))
 
         date = datetime(2023, 1, 2)  # Monday
         self.assertFalse(pipeline.is_weekend(date))
 
-    def test_is_holiday(self):
+    def test_isHoliday(self):
         # Assuming Nigeria's public holidays are set in the DataPipeline class
         date = datetime(2023, 1, 1)  # New Year's Day
         self.assertTrue(pipeline.is_holiday(date))
